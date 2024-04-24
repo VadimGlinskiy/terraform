@@ -43,6 +43,7 @@ resource "yandex_compute_instance" "terraform-vm" {
 
   network_interface {
     subnet_id = "${yandex_vpc_subnet.terraform-network-subnet.id}"
+    nat = true
   }
 
   metadata = {
