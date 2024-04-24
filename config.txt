@@ -1,0 +1,8 @@
+#cloud-config
+users:
+  - name: vadim
+    groups: sudo
+    shell: /bin/bash
+    sudo: 'ALL=(ALL) NOPASSWD:ALL'
+    ssh-authorized-keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDGQyDbW3+0ym5+SFQYpD6DRUCFVUx8+aTajsLc42++QPcdTot1UjVufy1Yt4Wv/iSgklzfia3R2U/jSPhL1MWpma05kPGbDNsgyC472dVHUiZaKnhEnJgjywUFZXcyhsqZK3zax2AHXWugo2CJhbutcevM/1dTr174Wi4w6XP2ZrTytSAGra0Gw4GknafSxjPRHVLlTX/dbKXCEHnzEuNGFR5SipkTX8+Va/zixr043Fcf3dCdBTi1xFb39ie+dzs/I/YAlBHEEzmg3NdL348RN0ycDyKP1Ekc4vmmSmBs2jOf79cwt89DqxWVFhmldVmcpipUcqLMOOqwsHe3k32hMWkCFMIq8Dh9TmvU9mDm33yXep/Mf6JRUVnHWX74uQ9bwBJrNatf4cNFGro+ETKnynfPswaQY8igsNJFFX4a7aeriDsDzKeGUSC/8Yt31zhYxnLn/2ZHMvB3m9Y021t7q2T6bcnNR2nkLjnCcFoPw54WihsW1oD6BmOH0LfBAXM= vadim@vadim
