@@ -38,6 +38,38 @@ locals {
   sa_name     = "myaccount"
 }
 
+resource "yandex_kubernetes_cluster" "k8s-my-cluster" {
+  name                    = "k8s-my-cluster"
+  network_id              = yandex_vpc_network.my-regional-net.id
+  network_policy_provider = "CALICO"
+  master {
+    master_location {
+      zone      = yandex_vpc_subnet.mysubnet-a.zone
+      subnet_id = yandex_vpc_subnet.mysubnet-a.id
+    }
+    master_location {
+      zone      = yandex_vpc_subnet.mysubnet-b.zone
+      subnet_id = yandex_vpc_subnet.mysubnet-b.id
+    }
+    master_location {
+      zone      = yandex_vpc_subnet.mysubnet-d.zone
+      subnet_id = yandex_vpc_subnet.mysubnet-d.id
+    }
+    security_group_ids = [yandex_vpc_security_group.regional-k8s-sg.id]
+  }
+  service_account_id      = yandex_iam_service_account.my-regional-account.id
+  node_service_account_id = yandex_iam_service_account.my-regional-account.id
+  depends_on = [
+    yandex_resourcemanager_folder_iam_member.k8s-clusters-agent,
+    yandex_resourcemanager_folder_iam_member.vpc-public-admin,
+    yandex_resourcemanager_folder_iam_member.images-puller,
+    yandex_resourcemanager_folder_iam_member.encrypterDecrypter
+  ]
+  kms_provider {
+    key_id = yandex_kms_symmetric_key.kms-key.id
+  }
+}
+
 resource "yandex_vpc_network" "my-regional-net" {
   name = "my-regional-net"
 }
@@ -68,14 +100,19 @@ resource "yandex_iam_service_account" "my-regional-account" {
   description = "K8S regional service account"
 }
 
-resource "yandex_resourcemanager_folder_iam_member" "editor" {
-  # Сервисному аккаунту назначается роль "editor".
-  folder_id = "editor"
+resource "yandex_resourcemanager_folder_iam_member" "k8s-clusters-agent" {
+  # Сервисному аккаунту назначается роль "k8s.clusters.agent".
+  folder_id = local.folder_id
   role      = "k8s.clusters.agent"
   member    = "serviceAccount:${yandex_iam_service_account.my-regional-account.id}"
 }
 
-
+resource "yandex_resourcemanager_folder_iam_member" "vpc-public-admin" {
+  # Сервисному аккаунту назначается роль "vpc.publicAdmin".
+  folder_id = local.folder_id
+  role      = "vpc.publicAdmin"
+  member    = "serviceAccount:${yandex_iam_service_account.my-regional-account.id}"
+}
 
 resource "yandex_resourcemanager_folder_iam_member" "images-puller" {
   # Сервисному аккаунту назначается роль "container-registry.images.puller".
@@ -144,33 +181,98 @@ resource "yandex_vpc_security_group" "regional-k8s-sg" {
   }
 }
 
-resource "yandex_kubernetes_cluster" "k8s-regional" {
-  name                    = "k8s-regional"
-  network_id              = yandex_vpc_network.my-regional-net.id
-  network_policy_provider = "CALICO"
-  master {
-    master_location {
-      zone      = yandex_vpc_subnet.mysubnet-a.zone
-      subnet_id = yandex_vpc_subnet.mysubnet-a.id
-    }
-    master_location {
-      zone      = yandex_vpc_subnet.mysubnet-b.zone
-      subnet_id = yandex_vpc_subnet.mysubnet-b.id
-    }
-    master_location {
-      zone      = yandex_vpc_subnet.mysubnet-d.zone
-      subnet_id = yandex_vpc_subnet.mysubnet-d.id
-    }
-    security_group_ids = [yandex_vpc_security_group.regional-k8s-sg.id]
+resource "yandex_kubernetes_node_group" "my_node_group" {
+  cluster_id  = "${yandex_kubernetes_cluster.k8s-my-cluster.id}"
+  name        = "node-group"
+  description = "description"
+  version     = "1.26"
+
+  labels = {
+    "key" = "value"
   }
-  service_account_id      = yandex_iam_service_account.my-regional-account.id
-  node_service_account_id = yandex_iam_service_account.my-regional-account.id
-  depends_on = [
-    yandex_resourcemanager_folder_iam_member.editor,
-    yandex_resourcemanager_folder_iam_member.images-puller,
-    yandex_resourcemanager_folder_iam_member.encrypterDecrypter
-  ]
-  kms_provider {
-    key_id = yandex_kms_symmetric_key.kms-key.id
+
+  instance_template {
+    platform_id = "standard-v1"
+
+    network_interface {
+      nat                = true
+      subnet_ids         = ["${yandex_vpc_subnet.mysubnet-a.id}"]
+    }
+
+    resources {
+      memory = 2
+      cores  = 2
+    }
+
+    boot_disk {
+      type = "network-hdd"
+      size = 32
+    }
+
+    scheduling_policy {
+      preemptible = false
+    }
+  }
+
+  scale_policy {
+    auto_scale {
+      min     = 1
+      max     = 3
+      initial = 1
+    }
+  }
+
+  allocation_policy {
+    location {
+      zone = "ru-central1-a"
+    }
+  }
+}
+
+resource "yandex_kubernetes_node_group" "my_node_group-b" {
+  cluster_id  = "${yandex_kubernetes_cluster.k8s-my-cluster.id}"
+  name        = "node-group-b"
+  description = "description"
+  version     = "1.26"
+
+  labels = {
+    "key" = "value"
+  }
+
+  instance_template {
+    platform_id = "standard-v1"
+
+    network_interface {
+      nat                = true
+      subnet_ids         = ["${yandex_vpc_subnet.mysubnet-b.id}"]
+    }
+
+    resources {
+      memory = 2
+      cores  = 2
+    }
+
+    boot_disk {
+      type = "network-hdd"
+      size = 32
+    }
+
+    scheduling_policy {
+      preemptible = false
+    }
+  }
+
+  scale_policy {
+    auto_scale {
+      min     = 1
+      max     = 3
+      initial = 1
+    }
+  }
+
+  allocation_policy {
+    location {
+      zone = "ru-central1-b"
+    }
   }
 }
